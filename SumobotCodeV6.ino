@@ -254,7 +254,7 @@ void loop() {
                         Serial.println("Reverse Left");                        
                     }
                     
-                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (2 * searchingDelay)) {
+                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (searchingDelay * 3 / 2)) {
                         digitalWrite(IN1, LOW);
                         digitalWrite(IN2, LOW);
                         digitalWrite(IN3, LOW);
@@ -262,7 +262,7 @@ void loop() {
                         Serial.println("Wait");
                     }
 
-                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (2 * searchingDelay)) {
+                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (searchingDelay * 3 / 2)) {
                         previousTimeSearchingDelay = currentTimeSearchingDelay;
                         previousTimeStartSearching = currentTimeStartSearching;
                         zigzagPath = 1;
@@ -299,7 +299,7 @@ void loop() {
                         Serial.println("Reverse Right");
                     }
 
-                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (2 * searchingDelay)) {
+                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (searchingDelay * 3 / 2)) {
                         digitalWrite(IN1, LOW);
                         digitalWrite(IN2, LOW);
                         digitalWrite(IN3, LOW);
@@ -307,7 +307,7 @@ void loop() {
                         Serial.println("Wait");
                     }
 
-                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (2 * searchingDelay)) {
+                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (searchingDelay * 3 / 2)) {
                         previousTimeSearchingDelay = currentTimeSearchingDelay;
                         previousTimeStartSearching = currentTimeStartSearching;
                         zigzagPath = 0;
