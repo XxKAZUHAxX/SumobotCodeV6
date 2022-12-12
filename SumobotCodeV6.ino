@@ -251,8 +251,7 @@ void loop() {
                         digitalWrite(IN2, LOW);
                         digitalWrite(IN3, LOW);
                         digitalWrite(IN4, HIGH);
-                        Serial.println("Reverse Left");
-                        
+                        Serial.println("Reverse Left");                        
                     }
                     
                     else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (2 * searchingDelay)) {
