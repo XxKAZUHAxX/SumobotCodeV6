@@ -8,7 +8,8 @@
     // IR Tracking Sensor Pinout
 #define LEFT_IR_TRACKING_PIN A2
 #define RIGHT_IR_TRACKING_PIN A3
-#define BACK_IR_TRACKING_PIN A4 
+#define BACK_IR_TRACKER1_PIN A4
+#define BACK_IR_TRACKER2_PIN A5
     // DC Motors Pinout
 #define IN1 6   // FORWARD (M1)
 #define IN2 7   // BACKWARD (M1)
@@ -22,7 +23,7 @@
     // ULTRASONIC SENSOR
 unsigned long previousTimeUltrasonicTrigger = millis();
 int ultrasonicSensorDelay = 60;
-double ultrasonicSensorDistance = 40.0;
+double ultrasonicSensorDistance = 70.0;
 double previousDistance;
 bool ultrasonicSensorState = 0;
 
@@ -34,9 +35,12 @@ double objectDistance;
 
 
     // variables under IR Tracking Sensors:
-unsigned long previousTimeTrackTriggers = millis();
+unsigned long previousTimeIRPhase = 0;
 bool triggerIRTracker = 0;
-int IRTrackDelay = 2000;
+bool leftTrackTrigger = 0;
+bool rightTrackTrigger = 0;
+bool bothTrackTrigger = 0;
+int IRPhaseDelay = 500;
 
     // variables under Searching Mode
 int zigzagPath = 0;
@@ -50,13 +54,14 @@ const int searchingDelay = 750;
 
 void setup() {
 
-    Serial.begin(9600);
+    Serial.begin(115200);
         // Sensor Setup
-    pinMode(LEFT_IR_PROXIMITY_PIN, INPUT);
-    pinMode(RIGHT_IR_PROXIMITY_PIN, INPUT);
-    pinMode(LEFT_IR_TRACKING_PIN, INPUT); 
-    pinMode(RIGHT_IR_TRACKING_PIN, INPUT);
-    pinMode(BACK_IR_TRACKING_PIN, INPUT);
+    pinMode(LEFT_IR_PROXIMITY_PIN, INPUT_PULLUP);
+    pinMode(RIGHT_IR_PROXIMITY_PIN, INPUT_PULLUP);
+    pinMode(LEFT_IR_TRACKING_PIN, INPUT_PULLUP); 
+    pinMode(RIGHT_IR_TRACKING_PIN, INPUT_PULLUP);
+    pinMode(BACK_IR_TRACKER1_PIN, INPUT_PULLUP);
+    pinMode(BACK_IR_TRACKER2_PIN, INPUT_PULLUP);
     pinMode(ECHO_PIN, INPUT);
     pinMode(TRIGGER_PIN, OUTPUT);
     attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoPinInterrupt, CHANGE);
@@ -74,6 +79,24 @@ void setup() {
     digitalWrite(IN4, LOW);
     analogWrite(ENA, 255);
     analogWrite(ENB, 255);
+
+    // delay for 5 seconds
+    Serial.println("Delay for 5 seconds");
+    delay(5000);
+
+    // turn twice
+    Serial.println("Turn Twice");
+    analogWrite(ENA, 255);
+    analogWrite(ENB, 255);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    delay(1500);
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
 }
 
 
@@ -88,7 +111,7 @@ void loop() {
     }
 
     // drives the motor forward if an object is near ultrasonicSensorDistance or below
-    else if (newDistanceAvailable) {
+    if (newDistanceAvailable) {
         objectDistance = getUltrasonicDistance();
         if (objectDistance <= ultrasonicSensorDistance && objectDistance >= 2.0) {
             ultrasonicSensorState = 1;
@@ -146,64 +169,192 @@ void loop() {
     }
 
     // reads the state of line tracking sensors
-    if (digitalRead(LEFT_IR_TRACKING_PIN) == LOW || digitalRead(RIGHT_IR_TRACKING_PIN) == LOW) {
+    else if (digitalRead(LEFT_IR_TRACKING_PIN) == LOW || digitalRead(RIGHT_IR_TRACKING_PIN) == LOW) {
         Serial.println("TRACK_TRIGGERED");
         detachInterrupt(digitalPinToInterrupt(ECHO_PIN));
+        previousTimeIRPhase = millis();
+        zigzagPath = 0;
         triggerIRTracker = 1;
+            analogWrite(ENA, 150);
+            analogWrite(ENB, 150);
+            digitalWrite(IN1, LOW);
+            digitalWrite(IN2, HIGH);
+            digitalWrite(IN3, LOW);
+            digitalWrite(IN4, HIGH);
         while (triggerIRTracker) {
-        unsigned long currentTimeTrackTriggers = millis();
+            unsigned long currentTimeTrackTriggers = millis();
+            unsigned long currentTimeIRPhase = 0;
 
-        if (digitalRead(LEFT_IR_TRACKING_PIN) == LOW) {
-            analogWrite(ENA, 200);
-            analogWrite(ENB, 255);
-            digitalWrite(IN1, LOW);
-            digitalWrite(IN2, HIGH);
-            digitalWrite(IN3, LOW);
-            digitalWrite(IN4, HIGH);
-            previousTimeTrackTriggers = currentTimeTrackTriggers;
-            Serial.println("BACKWARD_LEFT");
-            
-        }
-            
-        else if (digitalRead(RIGHT_IR_TRACKING_PIN) == LOW) {
-            analogWrite(ENA, 255);
-            analogWrite(ENB, 200);
-            digitalWrite(IN1, LOW);
-            digitalWrite(IN2, HIGH);
-            digitalWrite(IN3, LOW);
-            digitalWrite(IN4, HIGH);
-            previousTimeTrackTriggers = currentTimeTrackTriggers;
-            Serial.println("BACKWARD_RIGHT");
-            
-        }
+            if (digitalRead(LEFT_IR_TRACKING_PIN) == LOW && digitalRead(RIGHT_IR_TRACKING_PIN) == HIGH) {
+                leftTrackTrigger = 1;
+                rightTrackTrigger = 0;
+                bothTrackTrigger = 0;
+            }
+            else if (leftTrackTrigger) {
+                currentTimeIRPhase = millis();
+                if (currentTimeIRPhase - previousTimeIRPhase < IRPhaseDelay) {
+                    Serial.println("BACKWARD");
+                    analogWrite(ENA, 130);
+                    analogWrite(ENB, 130);
+                    digitalWrite(IN1, LOW);
+                    digitalWrite(IN2, HIGH);
+                    digitalWrite(IN3, LOW);
+                    digitalWrite(IN4, HIGH);
+                }
+                else if (currentTimeIRPhase - previousTimeIRPhase > IRPhaseDelay && currentTimeIRPhase - previousTimeIRPhase < (IRPhaseDelay * 3 / 2)) {
+                    Serial.println("BACKWARD_LEFT");
+                    analogWrite(ENA, 255);
+                    analogWrite(ENB, 255);
+                    digitalWrite(IN1, HIGH);
+                    digitalWrite(IN2, LOW);
+                    digitalWrite(IN3, LOW);
+                    digitalWrite(IN4, HIGH); 
+                }
+                else if (currentTimeIRPhase - previousTimeIRPhase > (IRPhaseDelay * 3 / 2)) {
+                    Serial.println("BACKWARD_LEFTSTOP");
+                    digitalWrite(IN1, LOW);
+                    digitalWrite(IN2, LOW);
+                    digitalWrite(IN3, LOW);
+                    digitalWrite(IN4, LOW);
+                    previousTimeIRPhase = currentTimeIRPhase;
+                    leftTrackTrigger = 0;
+                    triggerIRTracker = 0;
+                    attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoPinInterrupt, CHANGE);
+                    return;
+                }
+                if (digitalRead(BACK_IR_TRACKER1_PIN) == LOW || digitalRead(BACK_IR_TRACKER2_PIN) == LOW) {
+                    Serial.println("BACKWARD_SENSORSTOP");
+                    analogWrite(ENA, 255);
+                    analogWrite(ENB, 255);
+                    digitalWrite(IN1, HIGH);
+                    digitalWrite(IN2, LOW);
+                    digitalWrite(IN3, HIGH);
+                    digitalWrite(IN4, LOW);
+                    delay(100);
+                    previousTimeIRPhase = currentTimeIRPhase;
+                    triggerIRTracker = 0;
+                    leftTrackTrigger = 0;
+                    rightTrackTrigger = 0;
+                    bothTrackTrigger = 0;
+                    attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoPinInterrupt, CHANGE);
+                    return;
+                }
+            }
+                
+            else if (digitalRead(LEFT_IR_TRACKING_PIN) == HIGH && digitalRead(RIGHT_IR_TRACKING_PIN) == LOW) {
+                leftTrackTrigger = 0;
+                rightTrackTrigger = 1;
+                bothTrackTrigger = 0;
+            }
+            else if (rightTrackTrigger) {
+                currentTimeIRPhase = millis();
+                if (currentTimeIRPhase - previousTimeIRPhase < IRPhaseDelay) {
+                    Serial.println("BACKWARD");
+                    analogWrite(ENA, 130);
+                    analogWrite(ENB, 130);
+                    digitalWrite(IN1, LOW);
+                    digitalWrite(IN2, HIGH);
+                    digitalWrite(IN3, LOW);
+                    digitalWrite(IN4, HIGH);
+                }
+                else if (currentTimeIRPhase - previousTimeIRPhase > IRPhaseDelay && currentTimeIRPhase - previousTimeIRPhase < (IRPhaseDelay * 3 / 2)) {
+                    Serial.println("BACKWARD_RIGHT");
+                    analogWrite(ENA, 255);
+                    analogWrite(ENB, 255);
+                    digitalWrite(IN1, LOW);
+                    digitalWrite(IN2, HIGH);
+                    digitalWrite(IN3, HIGH);
+                    digitalWrite(IN4, LOW);
+                }
+                else if (currentTimeIRPhase - previousTimeIRPhase > (IRPhaseDelay * 3 / 2)) {
+                    Serial.println("BACKWARD_RIGHTSTOP");
+                    digitalWrite(IN1, LOW);
+                    digitalWrite(IN2, LOW);
+                    digitalWrite(IN3, LOW);
+                    digitalWrite(IN4, LOW);
+                    previousTimeIRPhase = currentTimeIRPhase;
+                    rightTrackTrigger = 0;
+                    triggerIRTracker = 0;
+                    attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoPinInterrupt, CHANGE);
+                    return;
+                }
+                if (digitalRead(BACK_IR_TRACKER1_PIN) == LOW || digitalRead(BACK_IR_TRACKER2_PIN) == LOW) {
+                    Serial.println("BACKWARD_SENSORSTOP");
+                    analogWrite(ENA, 255);
+                    analogWrite(ENB, 255);
+                    digitalWrite(IN1, HIGH);
+                    digitalWrite(IN2, LOW);
+                    digitalWrite(IN3, HIGH);
+                    digitalWrite(IN4, LOW);
+                    delay(100);
+                    previousTimeIRPhase = currentTimeIRPhase;
+                    triggerIRTracker = 0;
+                    leftTrackTrigger = 0;
+                    rightTrackTrigger = 0;
+                    bothTrackTrigger = 0;
+                    attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoPinInterrupt, CHANGE);
+                    return;
+                }
+            }
 
-        else if (digitalRead(RIGHT_IR_TRACKING_PIN) == LOW && digitalRead(RIGHT_IR_TRACKING_PIN) == LOW) {
-            analogWrite(ENA, 255);
-            analogWrite(ENB, 255);
-            digitalWrite(IN1, LOW);
-            digitalWrite(IN2, HIGH);
-            digitalWrite(IN3, LOW);
-            digitalWrite(IN4, HIGH);
-            previousTimeTrackTriggers = currentTimeTrackTriggers;
-            Serial.println("BACKWARD");
-        }
+            else if (digitalRead(RIGHT_IR_TRACKING_PIN) == LOW && digitalRead(RIGHT_IR_TRACKING_PIN) == LOW) {
+                leftTrackTrigger = 0;
+                rightTrackTrigger = 0;
+                bothTrackTrigger = 1;
+            }
+            else if (bothTrackTrigger) {
+                currentTimeIRPhase = millis();
+                if (currentTimeIRPhase - previousTimeIRPhase < IRPhaseDelay) {
+                    Serial.println("BACKWARD");
+                    analogWrite(ENA, 130);
+                    analogWrite(ENB, 130);
+                    digitalWrite(IN1, LOW);
+                    digitalWrite(IN2, HIGH);
+                    digitalWrite(IN3, LOW);
+                    digitalWrite(IN4, HIGH);
+                }
+                
+                else if (currentTimeIRPhase - previousTimeIRPhase > IRPhaseDelay && currentTimeIRPhase - previousTimeIRPhase < (IRPhaseDelay * 2)) {
+                    Serial.println("BACKWARD_ROTATE");
+                    analogWrite(ENA, 255);
+                    analogWrite(ENB, 255);
+                    digitalWrite(IN1, HIGH);
+                    digitalWrite(IN2, LOW);
+                    digitalWrite(IN3, LOW);
+                    digitalWrite(IN4, HIGH);
+                }
 
-        else if (currentTimeTrackTriggers - previousTimeTrackTriggers > IRTrackDelay) {
-            Serial.println("BACKWARD_DELAYSTOP");
-            previousTimeTrackTriggers = currentTimeTrackTriggers;
-            triggerIRTracker = 0;
-            attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoPinInterrupt, CHANGE);
-            return;
+                else if (currentTimeIRPhase - previousTimeIRPhase > (IRPhaseDelay * 2)) {
+                    Serial.println("BACKWARD_ROTATESTOP");
+                    digitalWrite(IN1, LOW);
+                    digitalWrite(IN2, LOW);
+                    digitalWrite(IN3, LOW);
+                    digitalWrite(IN4, LOW);
+                    previousTimeIRPhase = currentTimeIRPhase;
+                    triggerIRTracker = 0;
+                    bothTrackTrigger = 0;
+                    attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoPinInterrupt, CHANGE);
+                    return;
+                }
+                if (digitalRead(BACK_IR_TRACKER1_PIN) == LOW || digitalRead(BACK_IR_TRACKER2_PIN) == LOW) {
+                    Serial.println("BACKWARD_SENSORSTOP");
+                    analogWrite(ENA, 255);
+                    analogWrite(ENB, 255);
+                    digitalWrite(IN1, HIGH);
+                    digitalWrite(IN2, LOW);
+                    digitalWrite(IN3, HIGH);
+                    digitalWrite(IN4, LOW);
+                    delay(100);
+                    previousTimeIRPhase = currentTimeIRPhase;
+                    triggerIRTracker = 0;
+                    leftTrackTrigger = 0;
+                    rightTrackTrigger = 0;
+                    bothTrackTrigger = 0;
+                    attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoPinInterrupt, CHANGE);
+                    return;
+                }
+            }
         }
-
-        if (digitalRead(BACK_IR_TRACKING_PIN) == LOW) {
-            Serial.println("BACKWARD_SENSORSTOP");
-            previousTimeTrackTriggers = currentTimeTrackTriggers;
-            triggerIRTracker = 0;
-            attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoPinInterrupt, CHANGE);
-            return;
-        }
-    }
     }
 
     
@@ -231,10 +382,10 @@ void loop() {
                 // Serial.print("Left: ");
                 // Serial.println(currentTimeStartSearching - previousTimeStartSearching);
                 if (currentTimeStartSearching - previousTimeStartSearching < startSearchingTimeDelay) {
-                    analogWrite(ENA, 0);
-                    analogWrite(ENB, 255);
+                    analogWrite(ENA, 90);
+                    analogWrite(ENB, 130);
                     digitalWrite(IN1, LOW);
-                    digitalWrite(IN2, LOW);
+                    digitalWrite(IN2, HIGH);
                     digitalWrite(IN3, HIGH);
                     digitalWrite(IN4, LOW);
                     previousTimeSearchingDelay = currentTimeStartSearching;
@@ -245,8 +396,8 @@ void loop() {
 
                     currentTimeSearchingDelay = millis();
                     if (currentTimeSearchingDelay - previousTimeSearchingDelay < searchingDelay) {
-                        analogWrite(ENA, 255);
-                        analogWrite(ENB, 255);
+                        analogWrite(ENA, 130);
+                        analogWrite(ENB, 90);
                         digitalWrite(IN1, HIGH);
                         digitalWrite(IN2, LOW);
                         digitalWrite(IN3, LOW);
@@ -277,12 +428,12 @@ void loop() {
                 // Serial.println(currentTimeStartSearching - previousTimeStartSearching);
                 if (currentTimeStartSearching - previousTimeStartSearching < startSearchingTimeDelay) {
                     Serial.println("Search Right");
-                    analogWrite(ENA, 255);
-                    analogWrite(ENB, 0);
+                    analogWrite(ENA, 130);
+                    analogWrite(ENB, 90);
                     digitalWrite(IN1, HIGH);
                     digitalWrite(IN2, LOW);
                     digitalWrite(IN3, LOW);
-                    digitalWrite(IN4, LOW);
+                    digitalWrite(IN4, HIGH);
                     previousTimeSearchingDelay = currentTimeStartSearching;
                 }
 
@@ -290,8 +441,8 @@ void loop() {
 
                     currentTimeSearchingDelay = millis();
                     if (currentTimeSearchingDelay - previousTimeSearchingDelay < searchingDelay) {
-                        analogWrite(ENA, 255);
-                        analogWrite(ENB, 255);
+                        analogWrite(ENA, 90);
+                        analogWrite(ENB, 130);
                         digitalWrite(IN1, LOW);
                         digitalWrite(IN2, HIGH);
                         digitalWrite(IN3, HIGH);
