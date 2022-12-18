@@ -44,6 +44,8 @@ int IRPhaseDelay = 500;
 
     // variables under Searching Mode
 int zigzagPath = 0;
+int zigzagPhaseCounter = 0;
+bool zigzagPhase = 0;
 bool sensorDetectState = 0;
 unsigned long previousTimeStartSearching = millis();
 unsigned long previousTimeStopSearching = millis();
@@ -169,11 +171,12 @@ void loop() {
     }
 
     // reads the state of line tracking sensors
-    else if (digitalRead(LEFT_IR_TRACKING_PIN) == LOW || digitalRead(RIGHT_IR_TRACKING_PIN) == LOW) {
+    if (digitalRead(LEFT_IR_TRACKING_PIN) == LOW || digitalRead(RIGHT_IR_TRACKING_PIN) == LOW) {
         Serial.println("TRACK_TRIGGERED");
         detachInterrupt(digitalPinToInterrupt(ECHO_PIN));
         previousTimeIRPhase = millis();
         zigzagPath = 0;
+        zigzagPhaseCounter = 2;
         triggerIRTracker = 1;
             analogWrite(ENA, 150);
             analogWrite(ENB, 150);
@@ -362,8 +365,7 @@ void loop() {
     // default state
     else if (objectDistance > ultrasonicSensorDistance) {
         unsigned long currentTimeStartSearching = millis();
-        unsigned long currentTimeStopSearching = 0;
-        unsigned long currentTimeSearchingDelay = 0;
+        unsigned long currentTimeSearchingDelay;
         
 
         if (digitalRead(LEFT_IR_PROXIMITY_PIN) == LOW || digitalRead(RIGHT_IR_PROXIMITY_PIN) == LOW) {
@@ -375,94 +377,182 @@ void loop() {
             sensorDetectState = 0;
         }
         
+        if (zigzagPhaseCounter >= 2) {
+            zigzagPhase = !zigzagPhase;
+            zigzagPhaseCounter = 0;
+            zigzagPath = 0;
+            return;
+        }
 
-        if (sensorDetectState == 0) {
-            if (zigzagPath == 0) {
-                
-                // Serial.print("Left: ");
-                // Serial.println(currentTimeStartSearching - previousTimeStartSearching);
-                if (currentTimeStartSearching - previousTimeStartSearching < startSearchingTimeDelay) {
-                    analogWrite(ENA, 90);
-                    analogWrite(ENB, 130);
-                    digitalWrite(IN1, LOW);
-                    digitalWrite(IN2, HIGH);
-                    digitalWrite(IN3, HIGH);
-                    digitalWrite(IN4, LOW);
-                    previousTimeSearchingDelay = currentTimeStartSearching;
-                    Serial.println("Search Left");
-                }
-                
-                else if (currentTimeStartSearching - previousTimeStartSearching > startSearchingTimeDelay) {
-
-                    currentTimeSearchingDelay = millis();
-                    if (currentTimeSearchingDelay - previousTimeSearchingDelay < searchingDelay) {
-                        analogWrite(ENA, 130);
-                        analogWrite(ENB, 90);
-                        digitalWrite(IN1, HIGH);
-                        digitalWrite(IN2, LOW);
-                        digitalWrite(IN3, LOW);
-                        digitalWrite(IN4, HIGH);
-                        Serial.println("Reverse Left");                        
-                    }
-                    
-                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (searchingDelay * 3 / 2)) {
-                        digitalWrite(IN1, LOW);
-                        digitalWrite(IN2, LOW);
-                        digitalWrite(IN3, LOW);
-                        digitalWrite(IN4, LOW);
-                        Serial.println("Wait");
-                    }
-
-                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (searchingDelay * 3 / 2)) {
-                        previousTimeSearchingDelay = currentTimeSearchingDelay;
-                        previousTimeStartSearching = currentTimeStartSearching;
-                        zigzagPath = 1;
-                        return;
-                    }
-                }
-            }
-
-            else if (zigzagPath == 1) {
-            
-                // Serial.print("Right: ");
-                // Serial.println(currentTimeStartSearching - previousTimeStartSearching);
-                if (currentTimeStartSearching - previousTimeStartSearching < startSearchingTimeDelay) {
-                    Serial.println("Search Right");
-                    analogWrite(ENA, 130);
-                    analogWrite(ENB, 90);
-                    digitalWrite(IN1, HIGH);
-                    digitalWrite(IN2, LOW);
-                    digitalWrite(IN3, LOW);
-                    digitalWrite(IN4, HIGH);
-                    previousTimeSearchingDelay = currentTimeStartSearching;
-                }
-
-                else if (currentTimeStartSearching - previousTimeStartSearching > startSearchingTimeDelay) {
-
-                    currentTimeSearchingDelay = millis();
-                    if (currentTimeSearchingDelay - previousTimeSearchingDelay < searchingDelay) {
+        else if (zigzagPhase == 0) {
+            if (sensorDetectState == 0) {
+                if (zigzagPath == 0) {
+                    // Serial.print("Left: ");
+                    // Serial.println(currentTimeStartSearching - previousTimeStartSearching);
+                    if (currentTimeStartSearching - previousTimeStartSearching < startSearchingTimeDelay) {
                         analogWrite(ENA, 90);
                         analogWrite(ENB, 130);
                         digitalWrite(IN1, LOW);
                         digitalWrite(IN2, HIGH);
                         digitalWrite(IN3, HIGH);
                         digitalWrite(IN4, LOW);
-                        Serial.println("Reverse Right");
+                        previousTimeSearchingDelay = currentTimeStartSearching;
+                        Serial.println("Search Left (Phase 1)");
                     }
+                    
+                    else if (currentTimeStartSearching - previousTimeStartSearching > startSearchingTimeDelay) {
+                        currentTimeSearchingDelay = millis();
+                        if (currentTimeSearchingDelay - previousTimeSearchingDelay < searchingDelay) {
+                            analogWrite(ENA, 130);
+                            analogWrite(ENB, 90);
+                            digitalWrite(IN1, HIGH);
+                            digitalWrite(IN2, LOW);
+                            digitalWrite(IN3, LOW);
+                            digitalWrite(IN4, HIGH);
+                            Serial.println("Reverse Left (Phase 1)");                        
+                        } 
+                        else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (searchingDelay * 3 / 2)) {
+                            digitalWrite(IN1, LOW);
+                            digitalWrite(IN2, LOW);
+                            digitalWrite(IN3, LOW);
+                            digitalWrite(IN4, LOW);
+                            Serial.println("Wait");
+                        }
+                        else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (searchingDelay * 3 / 2)) {
+                            previousTimeSearchingDelay = currentTimeSearchingDelay;
+                            previousTimeStartSearching = currentTimeStartSearching;
+                            zigzagPhaseCounter++;
+                            zigzagPath = 1;
+                            return;
+                        }
+                    }
+                }
 
-                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (searchingDelay * 3 / 2)) {
-                        digitalWrite(IN1, LOW);
+                else if (zigzagPath == 1) {
+                    // Serial.print("Right: ");
+                    // Serial.println(currentTimeStartSearching - previousTimeStartSearching);
+                    if (currentTimeStartSearching - previousTimeStartSearching < startSearchingTimeDelay) {
+                        Serial.println("Search Right (Phase 1)");
+                        analogWrite(ENA, 130);
+                        analogWrite(ENB, 90);
+                        digitalWrite(IN1, HIGH);
                         digitalWrite(IN2, LOW);
                         digitalWrite(IN3, LOW);
-                        digitalWrite(IN4, LOW);
-                        Serial.println("Wait");
+                        digitalWrite(IN4, HIGH);
+                        previousTimeSearchingDelay = currentTimeStartSearching;
                     }
 
-                    else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (searchingDelay * 3 / 2)) {
-                        previousTimeSearchingDelay = currentTimeSearchingDelay;
-                        previousTimeStartSearching = currentTimeStartSearching;
-                        zigzagPath = 0;
-                        return;
+                    else if (currentTimeStartSearching - previousTimeStartSearching > startSearchingTimeDelay) {
+                        currentTimeSearchingDelay = millis();
+                        if (currentTimeSearchingDelay - previousTimeSearchingDelay < searchingDelay) {
+                            analogWrite(ENA, 90);
+                            analogWrite(ENB, 130);
+                            digitalWrite(IN1, LOW);
+                            digitalWrite(IN2, HIGH);
+                            digitalWrite(IN3, HIGH);
+                            digitalWrite(IN4, LOW);
+                            Serial.println("Reverse Right (Phase 1)");
+                        }
+                        else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (searchingDelay * 3 / 2)) {
+                            digitalWrite(IN1, LOW);
+                            digitalWrite(IN2, LOW);
+                            digitalWrite(IN3, LOW);
+                            digitalWrite(IN4, LOW);
+                            Serial.println("Wait");
+                        }
+                        else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (searchingDelay * 3 / 2)) {
+                            previousTimeSearchingDelay = currentTimeSearchingDelay;
+                            previousTimeStartSearching = currentTimeStartSearching;
+                            zigzagPhaseCounter++;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        else if (zigzagPhase == 1) {
+            if (sensorDetectState == 0) {
+                if (zigzagPath == 0) {
+                    // Serial.print("Right: ");
+                    // Serial.println(currentTimeStartSearching - previousTimeStartSearching);
+                    if (currentTimeStartSearching - previousTimeStartSearching < startSearchingTimeDelay) {
+                        Serial.println("Search Right (Phase 2)");
+                        analogWrite(ENA, 130);
+                        analogWrite(ENB, 90);
+                        digitalWrite(IN1, HIGH);
+                        digitalWrite(IN2, LOW);
+                        digitalWrite(IN3, LOW);
+                        digitalWrite(IN4, HIGH);
+                        previousTimeSearchingDelay = currentTimeStartSearching;
+                    }
+
+                    else if (currentTimeStartSearching - previousTimeStartSearching > startSearchingTimeDelay) {
+                        currentTimeSearchingDelay = millis();
+                        if (currentTimeSearchingDelay - previousTimeSearchingDelay < searchingDelay) {
+                            analogWrite(ENA, 90);
+                            analogWrite(ENB, 130);
+                            digitalWrite(IN1, LOW);
+                            digitalWrite(IN2, HIGH);
+                            digitalWrite(IN3, HIGH);
+                            digitalWrite(IN4, LOW);
+                            Serial.println("Reverse Right (Phase 2)");
+                        }
+                        else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (searchingDelay * 3 / 2)) {
+                            digitalWrite(IN1, LOW);
+                            digitalWrite(IN2, LOW);
+                            digitalWrite(IN3, LOW);
+                            digitalWrite(IN4, LOW);
+                            Serial.println("Wait");
+                        }
+                        else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (searchingDelay * 3 / 2)) {
+                            previousTimeSearchingDelay = currentTimeSearchingDelay;
+                            previousTimeStartSearching = currentTimeStartSearching;
+                            zigzagPhaseCounter++;
+                            zigzagPath = 1;
+                            return;
+                        }
+                    }
+                }
+
+                else if (zigzagPath == 1) {
+                    // Serial.print("Left: ");
+                    // Serial.println(currentTimeStartSearching - previousTimeStartSearching);
+                    if (currentTimeStartSearching - previousTimeStartSearching < startSearchingTimeDelay) {
+                        analogWrite(ENA, 90);
+                        analogWrite(ENB, 130);
+                        digitalWrite(IN1, LOW);
+                        digitalWrite(IN2, HIGH);
+                        digitalWrite(IN3, HIGH);
+                        digitalWrite(IN4, LOW);
+                        previousTimeSearchingDelay = currentTimeStartSearching;
+                        Serial.println("Search Left (Phase 2)");
+                    }
+                    
+                    else if (currentTimeStartSearching - previousTimeStartSearching > startSearchingTimeDelay) {
+                        currentTimeSearchingDelay = millis();
+                        if (currentTimeSearchingDelay - previousTimeSearchingDelay < searchingDelay) {
+                            analogWrite(ENA, 130);
+                            analogWrite(ENB, 90);
+                            digitalWrite(IN1, HIGH);
+                            digitalWrite(IN2, LOW);
+                            digitalWrite(IN3, LOW);
+                            digitalWrite(IN4, HIGH);
+                            Serial.println("Reverse Left (Phase 2)");                        
+                        } 
+                        else if (currentTimeSearchingDelay - previousTimeSearchingDelay > searchingDelay && currentTimeSearchingDelay - previousTimeSearchingDelay < (searchingDelay * 3 / 2)) {
+                            digitalWrite(IN1, LOW);
+                            digitalWrite(IN2, LOW);
+                            digitalWrite(IN3, LOW);
+                            digitalWrite(IN4, LOW);
+                            Serial.println("Wait");
+                        }
+                        else if (currentTimeSearchingDelay - previousTimeSearchingDelay > (searchingDelay * 3 / 2)) {
+                            previousTimeSearchingDelay = currentTimeSearchingDelay;
+                            previousTimeStartSearching = currentTimeStartSearching;
+                            zigzagPhaseCounter++;
+                            return;
+                        }
                     }
                 }
             }

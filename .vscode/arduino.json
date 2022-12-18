@@ -1,5 +1,5 @@
 {
-    "port": "COM5",
+    "port": "COM4",
     "board": "arduino:avr:uno",
     "programmer": "arduino:avrispmkii",
     "sketch": "SumobotCodeV7.ino"
