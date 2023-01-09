@@ -23,7 +23,7 @@
     // ULTRASONIC SENSOR
 unsigned long previousTimeUltrasonicTrigger = millis();
 int ultrasonicSensorDelay = 60;
-double ultrasonicSensorDistance = 70.0;
+double ultrasonicSensorDistance = 60.0;
 double previousDistance;
 bool ultrasonicSensorState = 0;
 
@@ -40,7 +40,7 @@ bool triggerIRTracker = 0;
 bool leftTrackTrigger = 0;
 bool rightTrackTrigger = 0;
 bool bothTrackTrigger = 0;
-int IRPhaseDelay = 500;
+int IRPhaseDelay = 400;
 
     // variables under Searching Mode
 int zigzagPath = 0;
@@ -50,7 +50,7 @@ bool sensorDetectState = 0;
 unsigned long previousTimeStartSearching = millis();
 unsigned long previousTimeStopSearching = millis();
 unsigned long previousTimeSearchingDelay = millis();
-const int startSearchingTimeDelay = 750;
+const int startSearchingTimeDelay = 1000;
 const int searchingDelay = 750;
 
 

@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
-      "cwd": "c:/Users/Jesryl Jade/Downloads/SumobotCodeV6",
-      "program": "c:/Users/Jesryl Jade/Downloads/SumobotCodeV6/build/Debug/outDebug",
+      "cwd": "c:/Users/Jesryl Jade/Downloads/SumobotCodeV7",
+      "program": "c:/Users/Jesryl Jade/Downloads/SumobotCodeV7/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "C:/Users/Jesryl Jade/AppData/Local/Arduino15/packages/arduino/tools/avr-gdb/7.3.0-atmel3.6.1-arduino7/bin/avr-g++",
       "setupCommands": [
